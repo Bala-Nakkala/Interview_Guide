@@ -1,0 +1,342 @@
+# 01-Kubernetes-Monitoring-and-Email-Alerting.md
+
+# Kubernetes Monitoring & Email Alerting (End-to-End Flow)
+
+## Goal
+
+Monitor the Kubernetes cluster and receive email notifications whenever an issue occurs, such as:
+
+- Pod Restart
+- High CPU Usage
+- High Memory Usage
+- CrashLoopBackOff
+- Deployment Replica Mismatch
+
+---
+
+# Step 1: Install Monitoring Stack
+
+Install the monitoring stack using the kube-prometheus-stack Helm chart.
+
+```bash
+helm install monitoring prometheus-community/kube-prometheus-stack \
+-n monitoring --create-namespace
+```
+
+## Purpose
+
+A single Helm command installs the complete monitoring solution.
+
+Components installed automatically:
+
+- Prometheus
+- Grafana
+- Alertmanager
+- Prometheus Operator
+- kube-state-metrics
+- Node Exporter
+
+---
+
+# Step 2: Components Overview
+
+## Prometheus
+
+Purpose:
+
+Collects metrics from the Kubernetes cluster and applications.
+
+Examples:
+
+- CPU Usage
+- Memory Usage
+- Pod Restart Count
+- Node Status
+- Disk Usage
+
+Prometheus only collects metrics.
+
+It does **not** send notifications.
+
+---
+
+## Grafana
+
+Purpose:
+
+Displays Prometheus metrics using dashboards.
+
+Examples:
+
+- Cluster Health
+- CPU Usage
+- Memory Usage
+- Pod Status
+
+Grafana only visualizes data.
+
+---
+
+## Alertmanager
+
+Purpose:
+
+Receives alerts from Prometheus and sends notifications.
+
+Supports:
+
+- Email
+- Slack
+- Microsoft Teams
+- PagerDuty
+- Webhooks
+
+Alertmanager does **not** collect metrics.
+
+---
+
+## Prometheus Operator
+
+Purpose:
+
+Manages Prometheus components automatically.
+
+It watches Kubernetes custom resources such as:
+
+- PodMonitor
+- ServiceMonitor
+- PrometheusRule
+- Alertmanager
+
+---
+
+## kube-state-metrics
+
+Purpose:
+
+Provides Kubernetes object metrics.
+
+Examples:
+
+- Pod Status
+- Deployment Status
+- Replica Count
+- Namespace Status
+
+---
+
+## Node Exporter
+
+Purpose:
+
+Collects operating system metrics from every Kubernetes node.
+
+Examples:
+
+- CPU Usage
+- Memory Usage
+- Disk Usage
+- Network Usage
+
+One Node Exporter pod runs on every node.
+
+---
+
+# Step 3: Enable Spring Boot Metrics
+
+Enable Spring Boot Actuator in the application.
+
+Metrics Endpoint:
+
+```
+/actuator/prometheus
+```
+
+## Purpose
+
+Expose application metrics so Prometheus can collect them.
+
+---
+
+# Step 4: Create PodMonitor
+
+File:
+
+```
+podmonitor.yaml
+```
+
+## Purpose
+
+Tell Prometheus which application to monitor.
+
+Example:
+
+- Namespace: jenkins
+- Application: springboot-demo
+- Metrics Path: /actuator/prometheus
+
+Without PodMonitor, Prometheus cannot scrape application metrics.
+
+---
+
+# Step 5: Create Alert Rules
+
+File:
+
+```
+custom-alert-rules.yaml
+```
+
+## Purpose
+
+Define the conditions that should generate alerts.
+
+Examples:
+
+- Pod Restart
+- High CPU Usage
+- High Memory Usage
+- CrashLoopBackOff
+- Deployment Replica Mismatch
+
+Deploy:
+
+```bash
+kubectl apply -f custom-alert-rules.yaml
+```
+
+---
+
+# Step 6: Configure Alertmanager
+
+File:
+
+```
+values-alertmanager.yaml
+```
+
+## Purpose
+
+Configure email notifications.
+
+Configuration includes:
+
+- SMTP Server
+- Email Username
+- App Password
+- Email Receiver
+- Alert Routing
+
+---
+
+# Step 7: Configure Gmail
+
+Steps:
+
+1. Enable Two-Factor Authentication.
+2. Generate an App Password.
+3. Configure the App Password in Alertmanager.
+
+> In production environments, Gmail is usually replaced with the company's SMTP server.
+
+---
+
+# Step 8: Apply Alertmanager Configuration
+
+```bash
+helm upgrade monitoring prometheus-community/kube-prometheus-stack \
+--version 87.19.0 \
+-n monitoring \
+-f values-alertmanager.yaml
+```
+
+## Purpose
+
+Update Alertmanager with the new email configuration.
+
+---
+
+# Step 9: Test Email Alerts
+
+Restart a pod:
+
+```bash
+kubectl exec -it <pod-name> -n jenkins -- kill 1
+```
+
+Result:
+
+- Pod restarts.
+- Prometheus detects the restart.
+- PrometheusRule evaluates the condition.
+- Alert is sent to Alertmanager.
+- Alertmanager connects to the SMTP server.
+- Email notification is delivered.
+
+---
+
+# End-to-End Flow
+
+```
+Helm Install
+      │
+      ▼
+kube-prometheus-stack
+      │
+      ▼
+Prometheus
+      │
+      ▼
+Spring Boot Actuator
+      │
+      ▼
+PodMonitor
+      │
+      ▼
+Metrics Collection
+      │
+      ▼
+PrometheusRule
+      │
+      ▼
+Alertmanager
+      │
+      ▼
+SMTP Server (Gmail / Company SMTP)
+      │
+      ▼
+Email Notification
+```
+
+---
+
+# YAML Files Used
+
+## 1. podmonitor.yaml
+
+Purpose:
+
+Configure Prometheus to scrape Spring Boot application metrics.
+
+---
+
+## 2. custom-alert-rules.yaml
+
+Purpose:
+
+Define custom alert rules.
+
+---
+
+## 3. values-alertmanager.yaml
+
+Purpose:
+
+Configure Alertmanager with SMTP and email settings.
+
+---
+
+# Interview Explanation
+
+> "We deployed the monitoring solution using the kube-prometheus-stack Helm chart. It automatically installed Prometheus, Grafana, Alertmanager, Prometheus Operator, kube-state-metrics, and Node Exporter. We enabled Spring Boot Actuator to expose application metrics and created a PodMonitor so Prometheus could scrape them. We then defined alert conditions using PrometheusRule resources. Finally, we configured Alertmanager with Gmail SMTP using an App Password. Whenever an alert condition is met, Prometheus sends the alert to Alertmanager, which delivers an email notification through the configured SMTP server."
