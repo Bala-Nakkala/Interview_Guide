@@ -42,7 +42,7 @@
  Build Docker Image            Build Docker Image            Build Docker Image
       │                               │                              │
       ▼                               ▼                              ▼
- Push Image to DockerHub       Push Image to DockerHub       Push Image to DockerHub
+ Push Image to ECR/DockerHub    Push Image to ECR/DockerHub   Push Image to ECR/DockerHub
              │
              ▼
       Update Image Tag
